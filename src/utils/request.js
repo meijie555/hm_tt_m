@@ -89,7 +89,7 @@ instance.interceptors.response.use((res) => {
 
 // 导出一个使用配置好的axios来发请求的函数
 // 请求地址 url 请求方式 methdo  传参 data
-export default (url, data, method) => {
+export default (url, method, data) => {
   return instance({
     // 当请求方式是get 是params来传参
     // 其他请求方式   是data来传参
