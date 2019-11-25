@@ -43,7 +43,7 @@
                         class="close"
                         @click.stop="openMoreAction(article.art_id.toString())"
                       >
-                        <van-icon name="cross" ></van-icon>
+                        <van-icon name="cross"></van-icon>
                       </span>
                     </div>
                   </div>
@@ -54,7 +54,8 @@
         </div>
       </van-tab>
     </van-tabs>
-    <span class="bar_btn" slot="nav-right">
+    <!-- 汉堡按钮 -->
+    <span class="bar_btn" slot="nav-right" @click="openChannelEdit">
       <van-icon name="wap-nav"></van-icon>
     </span>
     <!-- 弹出层   登录后显示-->
@@ -63,8 +64,14 @@
       v-model="showMoreAction"
       @on-dislike="removeArticle"
       @on-report="removeArticle"
-      :articleId="articleId" >
-    </more-action>
+      :articleId="articleId"
+    ></more-action>
+    <!-- 频道选择 -->
+    <channel-edit
+      v-model="showEditChannel"
+      :myChannels="myChannels"
+      :activeIndex.sync="activeIndex"
+    ></channel-edit>
   </div>
 </template>
 
@@ -73,6 +80,7 @@ import { getMyChannel } from '@/api/channel'
 import { getArticle } from '@/api/article'
 import { mapState } from 'vuex'
 import MoreAction from './components/more-action'
+import channelEdit from './components/channel-edit'
 
 export default {
   name: 'home-index',
@@ -95,7 +103,9 @@ export default {
       // 删除按钮弹窗的显示与隐藏 默认false隐藏
       showMoreAction: false,
       // 当前文章id
-      articleId: null
+      articleId: null,
+      // 显示编辑频道
+      showEditChannel: false
     }
   },
   computed: {
@@ -105,7 +115,7 @@ export default {
     // 导入vuex的用户数据
     ...mapState(['user'])
   },
-  components: { MoreAction },
+  components: { MoreAction, channelEdit },
   watch: {
     // 监听用户数据变化，确定是否登录
     // 监听vuex的用户数据：重置到推荐频道，重新获取频道数据，手动加载文章数据。
@@ -255,9 +265,15 @@ export default {
       // 获取文章列表
       const articles = this.activeChannel.articles
       // 查找对应索引
-      const index = articles.findIndex(item => item.art_id.toString() === this.articleId)
+      const index = articles.findIndex(
+        item => item.art_id.toString() === this.articleId
+      )
       // 删除文章 [文章数组]
       articles.splice(index, 1)
+    },
+    // 打开频道
+    openChannelEdit () {
+      this.showEditChannel = true
     }
   },
   // 激活频道时，记录当前频道滚动位置
