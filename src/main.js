@@ -2,7 +2,7 @@ import Vue from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
-import Vant from 'vant'
+import Vant, { Lazyload } from 'vant'
 import 'vant/lib/index.less'
 import 'amfe-flexible'
 import '@/styles/index.less'
@@ -10,6 +10,7 @@ import plugin from '@/utils/plugin'
 
 Vue.use(plugin)
 Vue.use(Vant)
+Vue.use(Lazyload)
 
 Vue.config.productionTip = false
 

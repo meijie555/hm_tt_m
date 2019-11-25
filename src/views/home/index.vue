@@ -1,10 +1,11 @@
 <template>
   <div class="container">
     <!-- swipeable 是否开启手势滑动切换 -->
-    <van-tabs swipeable v-model="activeIndex">
+    <van-tabs swipeable v-model="activeIndex" :lazy-render="false" @change="changeChannel">
       <!-- 频道 -->
       <van-tab :title="item.name" v-for="item of myChannels" :key="item.id">
-        <div class="scroll-wrapper">
+        <!-- 阅读记忆 滚动事件 @scroll="remenber($event) -->
+        <div class="scroll-wrapper" @scroll="remenber($event)" ref="scrollWrapper">
           <van-cell-group>
             <van-pull-refresh
               v-model="activeChannel.downLoading"
@@ -24,20 +25,25 @@
                     <h3 class="van-ellipsis">{{article.title}}</h3>
                     <!-- 三张图 -->
                     <div class="img_box" v-if="article.cover.type===3">
-                      <van-image class="w33" fit="cover" :src="article.cover.images[0]" />
-                      <van-image class="w33" fit="cover" :src="article.cover.images[1]" />
-                      <van-image class="w33" fit="cover" :src="article.cover.images[2]" />
+                      <van-image class="w33" fit="cover" lazy-load :src="article.cover.images[0]" />
+                      <van-image class="w33" fit="cover" lazy-load :src="article.cover.images[1]" />
+                      <van-image class="w33" fit="cover" lazy-load :src="article.cover.images[2]" />
                     </div>
                     <!-- 一张图 -->
                     <div class="img_box" v-if="article.cover.type===1">
-                      <van-image class="w100" fit="cover" :src="article.cover.images[0]" />
+                      <van-image class="w100" fit="cover" lazy-load :src="article.cover.images[0]" />
                     </div>
                     <div class="info_box">
                       <span>{{article.aut_name}}</span>
                       <span>{{article.comm_count}}评论</span>
                       <span>{{article.pubdate | relTime}}</span>
-                      <span class="close">
-                        <van-icon name="cross"></van-icon>
+                      <!-- 登录后显示删除按钮  stop阻止事件冒泡 -->
+                      <span
+                        v-if="user.token"
+                        class="close"
+                        @click.stop="openMoreAction(article.art_id.toString())"
+                      >
+                        <van-icon name="cross" ></van-icon>
                       </span>
                     </div>
                   </div>
@@ -51,35 +57,62 @@
     <span class="bar_btn" slot="nav-right">
       <van-icon name="wap-nav"></van-icon>
     </span>
+    <!-- 弹出层   登录后显示-->
+    <more-action
+      v-if="user.token"
+      v-model="showMoreAction"
+      @on-dislike="removeArticle"
+      @on-report="removeArticle"
+      :articleId="articleId" >
+    </more-action>
   </div>
 </template>
 
 <script>
 import { getMyChannel } from '@/api/channel'
 import { getArticle } from '@/api/article'
+import { mapState } from 'vuex'
+import MoreAction from './components/more-action'
+
 export default {
   name: 'home-index',
   data () {
     return {
       // 上拉加载中
-      upLoading: false,
+      // upLoading: false,
       // 是否全部加载完成
-      finished: false,
+      // finished: false,
       // 文章列表
-      articles: [],
+      // articles: [],
       // 是否是刷新状态
-      downLoading: false,
+      // downLoading: false,
       // 刷新完成的提示  文案（暂无更新|更新成功）
       refreshSuccessText: '',
       // 我的频道列表(推荐频道默认拥有第一个频道)
       myChannels: [],
       // 激活的频道索引
-      activeIndex: 0
+      activeIndex: 0,
+      // 删除按钮弹窗的显示与隐藏 默认false隐藏
+      showMoreAction: false,
+      // 当前文章id
+      articleId: null
     }
   },
   computed: {
     activeChannel () {
       return this.myChannels[this.activeIndex]
+    },
+    // 导入vuex的用户数据
+    ...mapState(['user'])
+  },
+  components: { MoreAction },
+  watch: {
+    // 监听用户数据变化，确定是否登录
+    // 监听vuex的用户数据：重置到推荐频道，重新获取频道数据，手动加载文章数据。
+    user () {
+      this.activeIndex = 0
+      this.getMyChannels()
+      this.onload()
     }
   },
   methods: {
@@ -171,23 +204,75 @@ export default {
     // 获取频道数据
     async getMyChannels () {
       const data = await getMyChannel()
-      this.myChannels = data.channels.map(item => {
-        // 目前 myChannels： 频道id  频道名称
-        // 扩展 myChannels： 频道id  频道名称  +文章列表 +加载中 +刷新中 +是否全部加载 +时间戳
-        return {
-          id: item.id,
-          name: item.name,
-          articles: [],
-          upLoading: false,
-          downLoading: false,
-          finished: false,
-          timestamp: Date.now()
-        }
+      // console.log(data)
+      this.myChannels = []
+      this.$nextTick(() => {
+        this.myChannels = data.channels.map(item => {
+          // 目前 myChannels： 频道id  频道名称
+          // 扩展 myChannels： 频道id  频道名称  +文章列表 +加载中 +刷新中 +是否全部加载 +时间戳
+          return {
+            id: item.id,
+            name: item.name,
+            articles: [],
+            upLoading: false,
+            downLoading: false,
+            finished: false,
+            timestamp: Date.now(),
+            // 阅读位置
+            scrollTop: 0
+          }
+        })
       })
+    },
+    // 切换频道
+    changeChannel () {
+      // （当前频道下无文章数据）主动加载一次数据
+      if (!this.activeChannel.articles.length) {
+        // 开启加载中效果
+        this.activeChannel.upLoading = true
+        // 加载数据
+        this.onload()
+      } else {
+        // 当前频道有数据 滚动到当前
+        // 切换tab的时候回进行dom的重新绘制 需要等绘制完毕后定位
+        this.$nextTick(() => {
+          const dom = this.$refs['scrollWrapper'][this.activeIndex]
+          dom.scrollTop = this.activeChannel.scrollTop
+        })
+      }
+    },
+    // 记录阅读位置
+    remenber (e) {
+      this.activeChannel.scrollTop = e.target.scrollTop
+    },
+    // 更多操作-不感兴趣
+    openMoreAction (articleId) {
+      this.showMoreAction = true
+      this.articleId = articleId
+    },
+    // 不感兴趣-删除文章
+    removeArticle () {
+      // 获取文章列表
+      const articles = this.activeChannel.articles
+      // 查找对应索引
+      const index = articles.findIndex(item => item.art_id.toString() === this.articleId)
+      // 删除文章 [文章数组]
+      articles.splice(index, 1)
+    }
+  },
+  // 激活频道时，记录当前频道滚动位置
+  activated () {
+    // 初始化   当有滚动位置时才记录位置
+    if (this.$refs['scrollWrapper']) {
+      const dom = this.$refs['scrollWrapper'][this.activeIndex]
+      // console.log(dom)
+      dom.scrollTop = this.activeChannel.scrollTop
     }
   },
   created () {
     this.getMyChannels()
+    // console.log(this.activeChannel)
+    // console.log(this.myChannels)
   }
 }
 </script>

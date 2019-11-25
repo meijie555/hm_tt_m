@@ -11,7 +11,11 @@ const $sleep = () => {
     }, 1000)
   })
 }
-// 相对时间处理
+
+/**
+ * 相对时间处理
+ * @param {Sting} time
+ */
 const relTime = (time) => {
   // 依赖一个dayjs的插件 RelativeTime
   // dayjs() 获取当前时间

@@ -34,7 +34,7 @@ export default {
     return {
       loginForm: {
         mobile: '',
-        code: ''
+        code: '246810'
       },
       errmsg: {
         mobile: '',

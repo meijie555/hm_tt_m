@@ -4,7 +4,11 @@
     <van-nav-bar fixed title="黑马头条" right-text="搜索" @click-right="$router.push('/search')"></van-nav-bar>
     <!-- 内容 二级路由 -->
     <div class="my-wrapper">
-      <router-view />
+      <!-- 按需缓存 -->
+      <keep-alive>
+        <router-view v-if="$route.meta.keepAlive"></router-view>
+      </keep-alive>
+      <router-view v-if="!$route.meta.keepAlive"></router-view>
     </div>
     <!-- 底部 -->
     <van-tabbar>
